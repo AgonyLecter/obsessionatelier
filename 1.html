@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Obsession Atelier - Auctions</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #fff;
+            font-family: 'Cinzel', serif;
+            text-align: center;
+        }
+        header {
+            background-color: #d4af37;
+            padding: 15px;
+            color: #000;
+            font-size: 24px;
+        }
+        input, button {
+            margin: 5px;
+            padding: 8px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #d4af37;
+            color: #000;
+            cursor: pointer;
+        }
+        .auction-card {
+            display: inline-block;
+            background: #1b1b1b;
+            border: 2px solid #d4af37;
+            width: 300px;
+            border-radius: 10px;
+            margin: 10px;
+            padding: 10px;
+        }
+        .auction-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+    <header>Obsession Atelier Auctions</header>
+    <div id="auth-container">
+        <input type="email" id="email" placeholder="Email"><br>
+        <input type="password" id="password" placeholder="Password"><br>
+        <button onclick="register()">Register</button>
+        <button onclick="login()">Login</button>
+        <button onclick="resetPassword()">Forgot Password</button>
+    </div>
+    <div id="content" style="display:none;">
+        <p>Your OA Coins: <span id="coins">0</span></p>
+        <button onclick="buyCoins()">Buy OA Coins</button>
+        <div id="auctions"></div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBazSDSV-oZm2qxN4fngSxr-jdjtqoAP7k",
+            authDomain: "my-firebase-project-88807.firebaseapp.com",
+            databaseURL: "https://my-firebase-project-88807-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "my-firebase-project-88807",
+            storageBucket: "my-firebase-project-88807.firebasestorage.app",
+            messagingSenderId: "513977915999",
+            appId: "1:513977915999:web:2881f77f3df250783399ea",
+            measurementId: "G-NESJW44XZK"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        function showToast(message, type = "success") {
+            Toastify({
+                text: message,
+                duration: 3000,
+                gravity: "top",
+                backgroundColor: type === "success" ? "#d4af37" : "#ff4d4d",
+                style: { fontFamily: 'Cinzel, serif' }
+            }).showToast();
+        }
+
+        function register() {
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(user => {
+                    db.ref(`users/${user.user.uid}`).set({ coins: 0 });
+                    showToast("Registration successful!");
+                })
+                .catch(err => showToast(err.message, "error"));
+        }
+
+        function login() {
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            auth.signInWithEmailAndPassword(email, password)
+                .then(() => showToast("Login successful!"))
+                .catch(err => showToast(err.message, "error"));
+        }
+
+        function resetPassword() {
+            const email = document.getElementById("email").value;
+            auth.sendPasswordResetEmail(email)
+                .then(() => showToast("Password reset email sent!"))
+                .catch(err => showToast(err.message, "error"));
+        }
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                document.getElementById("auth-container").style.display = "none";
+                document.getElementById("content").style.display = "block";
+                loadUserCoins(user.uid);
+                loadAuctions();
+            } else {
+                document.getElementById("auth-container").style.display = "block";
+                document.getElementById("content").style.display = "none";
+            }
+        });
+
+        function loadUserCoins(uid) {
+            db.ref(`users/${uid}/coins`).on('value', snapshot => {
+                document.getElementById("coins").innerText = snapshot.val() || 0;
+            });
+        }
+
+        function buyCoins() {
+            const uid = auth.currentUser.uid;
+            db.ref(`users/${uid}/coins`).transaction(coins => (coins || 0) + 50);
+            showToast("You purchased 50 OA Coins!");
+        }
+
+        function loadAuctions() {
+            db.ref("auctions").on('value', snapshot => {
+                const container = document.getElementById("auctions");
+                container.innerHTML = "";
+                if (!snapshot.exists()) {
+                    container.innerHTML = "<p>No auctions available at the moment.</p>";
+                    return;
+                }
+                snapshot.forEach(auction => {
+                    const data = auction.val();
+                    container.innerHTML += `
+                        <div class="auction-card">
+                            <img src="${data.image}" alt="${data.title}">
+                            <h3>${data.title}</h3>
+                            <p>Current Bid: ${data.currentBid} OA Coins</p>
+                        </div>`;
+                });
+            });
+        }
+    </script>
+</body>
+</html>
+
+
+

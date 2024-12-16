@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Obsession Atelier - Add Auction</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #000;
+            color: #fff;
+            font-family: 'Cinzel', serif;
+        }
+        input, button, textarea {
+            display: block;
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            font-size: 14px;
+        }
+        button {
+            background-color: #d4af37;
+            color: #000;
+            cursor: pointer;
+        }
+        label {
+            margin: 10px 0;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Obsession Atelier - Add Product to Auction</h1>
+    <form id="addAuctionForm">
+        <label for="title">Product Title</label>
+        <input type="text" id="title" placeholder="Enter product title" required>
+
+        <label for="price">Starting Price (OA Coins)</label>
+        <input type="number" id="price" placeholder="Enter starting price" required>
+
+        <label for="duration">Auction Duration (in days)</label>
+        <input type="number" id="duration" value="7" min="1" required>
+
+        <label for="imageUrl">Image URL (optional)</label>
+        <input type="url" id="imageUrl" placeholder="Enter image URL">
+
+        <label for="imageFile">Or Upload Image (PNG/JPG)</label>
+        <input type="file" id="imageFile" accept="image/png, image/jpeg">
+
+        <button type="button" onclick="uploadAuction()">Add Auction</button>
+    </form>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBazSDSV-oZm2qxN4fngSxr-jdjtqoAP7k",
+            authDomain: "my-firebase-project-88807.firebaseapp.com",
+            databaseURL: "https://my-firebase-project-88807-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "my-firebase-project-88807",
+            storageBucket: "my-firebase-project-88807.firebasestorage.app",
+            messagingSenderId: "513977915999",
+            appId: "1:513977915999:web:2881f77f3df250783399ea",
+            measurementId: "G-NESJW44XZK"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const storage = firebase.storage();
+
+        function showToast(message, type = "success") {
+            Toastify({
+                text: message,
+                duration: 3000,
+                gravity: "top",
+                backgroundColor: type === "success" ? "#d4af37" : "#ff4d4d",
+                style: { fontFamily: 'Cinzel, serif' }
+            }).showToast();
+        }
+
+        async function uploadAuction() {
+            const title = document.getElementById("title").value.trim();
+            const price = parseInt(document.getElementById("price").value);
+            const duration = parseInt(document.getElementById("duration").value);
+            const imageUrl = document.getElementById("imageUrl").value.trim();
+            const imageFile = document.getElementById("imageFile").files[0];
+
+            if (!title || isNaN(price) || isNaN(duration)) {
+                showToast("Please fill in all required fields.", "error");
+                return;
+            }
+
+            let finalImageUrl = imageUrl;
+
+            if (imageFile) {
+                const storageRef = storage.ref(`auction-images/${Date.now()}_${imageFile.name}`);
+                const uploadTask = await storageRef.put(imageFile);
+                finalImageUrl = await uploadTask.ref.getDownloadURL();
+            }
+
+            if (!finalImageUrl) {
+                showToast("Please provide an image URL or upload an image.", "error");
+                return;
+            }
+
+            const endTime = Date.now() + duration * 24 * 60 * 60 * 1000;
+
+            const newAuction = {
+                title,
+                currentBid: price,
+                image: finalImageUrl,
+                endTime
+            };
+
+            db.ref("auctions").push(newAuction)
+                .then(() => {
+                    showToast("Auction added successfully!");
+                    document.getElementById("addAuctionForm").reset();
+                })
+                .catch(err => {
+                    showToast(err.message, "error");
+                });
+        }
+    </script>
+</body>
+</html>
