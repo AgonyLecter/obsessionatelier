@@ -25,31 +25,39 @@
             color: #000;
             font-size: 24px;
         }
-        input, button {
-            margin: 5px;
-            padding: 8px;
-            border: none;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-        button {
-            background-color: #d4af37;
-            color: #000;
-            cursor: pointer;
-        }
         .auction-card {
             display: inline-block;
             background: #1b1b1b;
             border: 2px solid #d4af37;
-            width: 300px;
             border-radius: 10px;
             margin: 10px;
             padding: 10px;
+            width: 300px;
+            text-align: center;
+            animation: float 3s ease-in-out infinite;
         }
         .auction-card img {
             width: 100%;
             height: 200px;
             object-fit: cover;
+            border-radius: 5px;
+        }
+        .timer {
+            color: #d4af37;
+            font-size: 16px;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #d4af37;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
         }
     </style>
 </head>
@@ -64,20 +72,19 @@
     </div>
     <div id="content" style="display:none;">
         <p>Your OA Coins: <span id="coins">0</span></p>
-        <button onclick="buyCoins()">Buy OA Coins</button>
         <div id="auctions"></div>
     </div>
 
     <script>
         const firebaseConfig = {
-  apiKey: "AIzaSyC7qhjI3lRxqZGbvmTQscetvvhuE8T4N4I",
-  authDomain: "wandernatureconnect.firebaseapp.com",
-  databaseURL: "https://wandernatureconnect-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "wandernatureconnect",
-  storageBucket: "wandernatureconnect.appspot.com",
-  messagingSenderId: "1062563433646",
-  appId: "1:1062563433646:web:a7251b914f569fc105f13f",
-  measurementId: "G-SGF0KC717J"
+            apiKey: "AIzaSyBazSDSV-oZm2qxN4fngSxr-jdjtqoAP7k",
+            authDomain: "my-firebase-project-88807.firebaseapp.com",
+            databaseURL: "https://my-firebase-project-88807-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "my-firebase-project-88807",
+            storageBucket: "my-firebase-project-88807.firebasestorage.app",
+            messagingSenderId: "513977915999",
+            appId: "1:513977915999:web:2881f77f3df250783399ea",
+            measurementId: "G-NESJW44XZK"
         };
 
         firebase.initializeApp(firebaseConfig);
@@ -125,7 +132,7 @@
                 document.getElementById("auth-container").style.display = "none";
                 document.getElementById("content").style.display = "block";
                 loadUserCoins(user.uid);
-                loadAuctions();
+                loadAuctions(user.uid);
             } else {
                 document.getElementById("auth-container").style.display = "block";
                 document.getElementById("content").style.display = "none";
@@ -138,13 +145,7 @@
             });
         }
 
-        function buyCoins() {
-            const uid = auth.currentUser.uid;
-            db.ref(`users/${uid}/coins`).transaction(coins => (coins || 0) + 50);
-            showToast("You purchased 50 OA Coins!");
-        }
-
-        function loadAuctions() {
+        function loadAuctions(userId) {
             db.ref("auctions").on('value', snapshot => {
                 const container = document.getElementById("auctions");
                 container.innerHTML = "";
@@ -152,20 +153,59 @@
                     container.innerHTML = "<p>No auctions available at the moment.</p>";
                     return;
                 }
-                snapshot.forEach(auction => {
-                    const data = auction.val();
-                    container.innerHTML += `
-                        <div class="auction-card">
-                            <img src="${data.image}" alt="${data.title}">
-                            <h3>${data.title}</h3>
-                            <p>Current Bid: ${data.currentBid} OA Coins</p>
-                        </div>`;
+
+                snapshot.forEach(auctionSnapshot => {
+                    const auction = auctionSnapshot.val();
+                    const auctionId = auctionSnapshot.key;
+
+                    const timeLeft = calculateTimeLeft(auction.endTime);
+                    const auctionElement = document.createElement("div");
+                    auctionElement.classList.add("auction-card");
+
+                    auctionElement.innerHTML = `
+                        <img src="${auction.image}" alt="${auction.title}">
+                        <h3>${auction.title}</h3>
+                        <p>Current Bid: ${auction.currentBid} OA Coins</p>
+                        <p class="timer" id="timer-${auctionId}">${timeLeft}</p>
+                        <button onclick="placeBid('${auctionId}', ${auction.currentBid}, '${userId}')">Place Bid</button>
+                    `;
+                    container.appendChild(auctionElement);
+
+                    setInterval(() => {
+                        const timerElement = document.getElementById(`timer-${auctionId}`);
+                        timerElement.innerText = calculateTimeLeft(auction.endTime);
+                    }, 1000);
                 });
+            });
+        }
+
+        function calculateTimeLeft(endTime) {
+            const now = Date.now();
+            const timeDiff = endTime - now;
+            if (timeDiff <= 0) return "Auction Ended";
+            const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+            return `${days}d ${hours}h ${minutes}m`;
+        }
+
+        function placeBid(auctionId, currentBid, userId) {
+            db.ref(`users/${userId}/coins`).once('value', snapshot => {
+                const userCoins = snapshot.val() || 0;
+                if (userCoins > currentBid) {
+                    const newBid = currentBid + 10;
+                    db.ref(`auctions/${auctionId}`).update({ currentBid: newBid });
+                    db.ref(`users/${userId}`).update({ coins: userCoins - newBid });
+                    showToast("Bid placed successfully!");
+                } else {
+                    showToast("Not enough OA Coins!", "error");
+                }
             });
         }
     </script>
 </body>
 </html>
+
 
 
 
