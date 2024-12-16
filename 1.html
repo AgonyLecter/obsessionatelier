@@ -6,10 +6,6 @@
     <title>Obsession Atelier - Auctions</title>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     <style>
         body {
             margin: 0;
@@ -35,6 +31,11 @@
             width: 300px;
             text-align: center;
             animation: float 3s ease-in-out infinite;
+            transition: transform 0.3s ease-in-out;
+        }
+        .auction-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px #d4af37;
         }
         .auction-card img {
             width: 100%;
@@ -46,6 +47,13 @@
             color: #d4af37;
             font-size: 16px;
         }
+        .timer.low-time {
+            color: #ff4d4d;
+            animation: blink 1s step-start infinite;
+        }
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
         button {
             margin-top: 10px;
             padding: 10px;
@@ -54,37 +62,50 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            transition: transform 0.3s, background-color 0.3s;
+        }
+        button:hover {
+            background-color: #fff;
+            color: #000;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.7);
+        }
+        .high-bid {
+            border: 3px solid #ff4d4d;
         }
         @keyframes float {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
         }
+        #loading {
+            color: #d4af37;
+            font-size: 20px;
+            padding: 20px;
+        }
     </style>
 </head>
 <body>
     <header>Obsession Atelier Auctions</header>
-    <div id="auth-container">
-        <input type="email" id="email" placeholder="Email"><br>
-        <input type="password" id="password" placeholder="Password"><br>
-        <button onclick="register()">Register</button>
-        <button onclick="login()">Login</button>
-        <button onclick="resetPassword()">Forgot Password</button>
-    </div>
     <div id="content" style="display:none;">
-        <p>Your OA Coins: <span id="coins">0</span></p>
+        <p>Welcome, <span id="username">N/A</span>! | Your OA Coins: <span id="coins">0</span></p>
+        <button onclick="buyCoins()">Buy 50 OA Coins</button>
         <div id="auctions"></div>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     <script>
         const firebaseConfig = {
-            apiKey: "AIzaSyBazSDSV-oZm2qxN4fngSxr-jdjtqoAP7k",
-            authDomain: "my-firebase-project-88807.firebaseapp.com",
-            databaseURL: "https://my-firebase-project-88807-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "my-firebase-project-88807",
-            storageBucket: "my-firebase-project-88807.firebasestorage.app",
-            messagingSenderId: "513977915999",
-            appId: "1:513977915999:web:2881f77f3df250783399ea",
-            measurementId: "G-NESJW44XZK"
+            apiKey: "AIzaSyC7qhjI3lRxqZGbvmTQscetvvhuE8T4N4I",
+            authDomain: "wandernatureconnect.firebaseapp.com",
+            databaseURL: "https://wandernatureconnect-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "wandernatureconnect",
+            storageBucket: "wandernatureconnect.appspot.com",
+            messagingSenderId: "1062563433646",
+            appId: "1:1062563433646:web:a7251b914f569fc105f13f",
+            measurementId: "G-SGF0KC717J"
         };
 
         firebase.initializeApp(firebaseConfig);
@@ -101,53 +122,40 @@
             }).showToast();
         }
 
-        function register() {
-            const email = document.getElementById("email").value;
-            const password = document.getElementById("password").value;
-            auth.createUserWithEmailAndPassword(email, password)
-                .then(user => {
-                    db.ref(`users/${user.user.uid}`).set({ coins: 0 });
-                    showToast("Registration successful!");
-                })
-                .catch(err => showToast(err.message, "error"));
-        }
-
-        function login() {
-            const email = document.getElementById("email").value;
-            const password = document.getElementById("password").value;
-            auth.signInWithEmailAndPassword(email, password)
-                .then(() => showToast("Login successful!"))
-                .catch(err => showToast(err.message, "error"));
-        }
-
-        function resetPassword() {
-            const email = document.getElementById("email").value;
-            auth.sendPasswordResetEmail(email)
-                .then(() => showToast("Password reset email sent!"))
-                .catch(err => showToast(err.message, "error"));
-        }
-
         auth.onAuthStateChanged(user => {
-            if (user) {
-                document.getElementById("auth-container").style.display = "none";
-                document.getElementById("content").style.display = "block";
-                loadUserCoins(user.uid);
-                loadAuctions(user.uid);
-            } else {
-                document.getElementById("auth-container").style.display = "block";
-                document.getElementById("content").style.display = "none";
+            if (!user) {
+                window.location.href = "login.html";
+                return;
             }
+            loadUserInfo(user.uid);
+            loadAuctions(user.uid);
         });
 
-        function loadUserCoins(uid) {
-            db.ref(`users/${uid}/coins`).on('value', snapshot => {
-                document.getElementById("coins").innerText = snapshot.val() || 0;
+        function loadUserInfo(uid) {
+            db.ref(`users/${uid}`).on('value', snapshot => {
+                const userData = snapshot.val();
+                document.getElementById("username").innerText = userData?.username || "N/A";
+                document.getElementById("coins").innerText = userData?.coins || 0;
+                document.getElementById("content").style.display = "block";
+            });
+        }
+
+        function buyCoins() {
+            const uid = auth.currentUser.uid;
+            db.ref(`users/${uid}/coins`).transaction(coins => (coins || 0) + 50, (error, committed) => {
+                if (committed) {
+                    showToast("You purchased 50 OA Coins!");
+                } else {
+                    showToast("Failed to purchase coins.", "error");
+                }
             });
         }
 
         function loadAuctions(userId) {
+            const container = document.getElementById("auctions");
+            container.innerHTML = "<div id='loading'>Loading...</div>";
+
             db.ref("auctions").on('value', snapshot => {
-                const container = document.getElementById("auctions");
                 container.innerHTML = "";
                 if (!snapshot.exists()) {
                     container.innerHTML = "<p>No auctions available at the moment.</p>";
@@ -162,18 +170,35 @@
                     const auctionElement = document.createElement("div");
                     auctionElement.classList.add("auction-card");
 
+                    let bidHistoryHtml = "<div class='bid-history'><strong>Bid History:</strong><ul>";
+                    if (auction.bids) {
+                        Object.entries(auction.bids).forEach(([bidder, bidAmount]) => {
+                            bidHistoryHtml += `<li>${bidder}: ${bidAmount} OA Coins</li>`;
+                        });
+                    }
+                    bidHistoryHtml += "</ul></div>";
+
                     auctionElement.innerHTML = `
                         <img src="${auction.image}" alt="${auction.title}">
                         <h3>${auction.title}</h3>
                         <p>Current Bid: ${auction.currentBid} OA Coins</p>
                         <p class="timer" id="timer-${auctionId}">${timeLeft}</p>
-                        <button onclick="placeBid('${auctionId}', ${auction.currentBid}, '${userId}')">Place Bid</button>
+                        <input type="number" id="bid-${auctionId}" placeholder="Enter your bid">
+                        <button onclick="placeBid('${auctionId}', '${userId}')">Place Bid</button>
+                        ${bidHistoryHtml}
                     `;
+
+                    if (auction.currentBid > 1000) {
+                        auctionElement.classList.add("high-bid");
+                    }
+
                     container.appendChild(auctionElement);
 
                     setInterval(() => {
-                        const timerElement = document.getElementById(`timer-${auctionId}`);
-                        timerElement.innerText = calculateTimeLeft(auction.endTime);
+                        const timer = document.getElementById(`timer-${auctionId}`);
+                        if (timer) {
+                            timer.innerText = calculateTimeLeft(auction.endTime);
+                        }
                     }, 1000);
                 });
             });
@@ -185,17 +210,34 @@
             if (timeDiff <= 0) return "Auction Ended";
             const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
             const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-            return `${days}d ${hours}h ${minutes}m`;
+            const minutes = Math.floor((timeDiff % (1000 * 60)) / (1000 * 60));
+            const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+            return `${days}d ${hours}h ${minutes}m ${seconds}s`;
         }
 
-        function placeBid(auctionId, currentBid, userId) {
+        function placeBid(auctionId, userId) {
+            const bidInput = document.getElementById(`bid-${auctionId}`);
+            const bidAmount = parseInt(bidInput.value);
+
+            if (isNaN(bidAmount) || bidAmount <= 0) {
+                showToast("Invalid bid amount!", "error");
+                return;
+            }
+
             db.ref(`users/${userId}/coins`).once('value', snapshot => {
                 const userCoins = snapshot.val() || 0;
-                if (userCoins > currentBid) {
-                    const newBid = currentBid + 10;
-                    db.ref(`auctions/${auctionId}`).update({ currentBid: newBid });
-                    db.ref(`users/${userId}`).update({ coins: userCoins - newBid });
+                if (userCoins >= bidAmount) {
+                    db.ref(`auctions/${auctionId}`).transaction(auction => {
+                        if (auction && bidAmount > auction.currentBid) {
+                            auction.currentBid = bidAmount;
+                            if (!auction.bids) auction.bids = {};
+                            auction.bids[userId] = bidAmount;
+                            return auction;
+                        }
+                        return;
+                    });
+
+                    db.ref(`users/${userId}`).update({ coins: userCoins - bidAmount });
                     showToast("Bid placed successfully!");
                 } else {
                     showToast("Not enough OA Coins!", "error");
