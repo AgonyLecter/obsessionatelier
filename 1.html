@@ -6,6 +6,7 @@
     <title>Obsession Atelier - Auctions</title>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -19,18 +20,27 @@
             background-color: #d4af37;
             padding: 15px;
             color: #000;
-            font-size: 24px;
+            font-size: 28px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 8px rgba(212, 175, 55, 0.7);
+        }
+        .auction-container, .user-auctions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px;
         }
         .auction-card {
-            display: inline-block;
-            background: #1b1b1b;
+            background: linear-gradient(135deg, #1b1b1b, #000);
             border: 2px solid #d4af37;
-            border-radius: 10px;
-            margin: 10px;
-            padding: 10px;
-            width: 300px;
+            border-radius: 15px;
+            box-shadow: 0 0 10px #d4af37;
+            width: 320px;
             text-align: center;
-            animation: float 3s ease-in-out infinite;
+            overflow: hidden;
+            position: relative;
             transition: transform 0.3s ease-in-out;
         }
         .auction-card:hover {
@@ -39,43 +49,62 @@
         }
         .auction-card img {
             width: 100%;
-            height: 200px;
+            height: 180px;
             object-fit: cover;
-            border-radius: 5px;
         }
-        .timer {
+        .auction-details {
+            padding: 15px;
+        }
+        .auction-details h3 {
+            margin: 0 0 10px;
+            font-size: 22px;
             color: #d4af37;
-            font-size: 16px;
         }
-        .timer.low-time {
-            color: #ff4d4d;
-            animation: blink 1s step-start infinite;
+        .current-bid {
+            font-size: 18px;
+            color: #fff;
+            margin-bottom: 10px;
         }
-        @keyframes blink {
-            50% { opacity: 0; }
-        }
-        button {
+        .bid-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
             margin-top: 10px;
-            padding: 10px;
+        }
+        .bid-button {
+            padding: 8px 12px;
             background-color: #d4af37;
             color: #000;
             border: none;
             border-radius: 5px;
+            font-size: 16px;
             cursor: pointer;
-            transition: transform 0.3s, background-color 0.3s;
+            transition: all 0.3s;
         }
-        button:hover {
+        .bid-button:hover {
             background-color: #fff;
-            color: #000;
-            transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.7);
+            box-shadow: 0 4px 8px rgba(212, 175, 55, 0.7);
         }
-        .high-bid {
-            border: 3px solid #ff4d4d;
+        .bid-history {
+            margin-top: 15px;
+            text-align: left;
+            font-size: 14px;
+            color: #d4af37;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-top: 1px solid #d4af37;
+            padding: 10px;
         }
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+        .timer {
+            color: #ff4d4d;
+            font-size: 16px;
+            font-weight: bold;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 5px 10px;
+            border-radius: 5px;
         }
         #loading {
             color: #d4af37;
@@ -85,11 +114,14 @@
     </style>
 </head>
 <body>
-    <header>Obsession Atelier Auctions</header>
+    <header>Obsession Atelier - Auction Game</header>
     <div id="content" style="display:none;">
         <p>Welcome, <span id="username">N/A</span>! | Your OA Coins: <span id="coins">0</span></p>
-        <button onclick="buyCoins()">Buy 50 OA Coins</button>
-        <div id="auctions"></div>
+        <button class="bid-button" onclick="buyCoins()">Buy 50 OA Coins</button>
+        <h2>All Auctions</h2>
+        <div class="auction-container" id="auctions"></div>
+        <h2>Your Active Bids</h2>
+        <div class="user-auctions" id="user-auctions"></div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -107,24 +139,13 @@
             appId: "1:1062563433646:web:a7251b914f569fc105f13f",
             measurementId: "G-SGF0KC717J"
         };
-
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.database();
 
-        function showToast(message, type = "success") {
-            Toastify({
-                text: message,
-                duration: 3000,
-                gravity: "top",
-                backgroundColor: type === "success" ? "#d4af37" : "#ff4d4d",
-                style: { fontFamily: 'Cinzel, serif' }
-            }).showToast();
-        }
-
         auth.onAuthStateChanged(user => {
             if (!user) {
-                window.location.href = "login.html";
+                window.location.href = "register.html";
                 return;
             }
             loadUserInfo(user.uid);
@@ -142,107 +163,101 @@
 
         function buyCoins() {
             const uid = auth.currentUser.uid;
-            db.ref(`users/${uid}/coins`).transaction(coins => (coins || 0) + 50, (error, committed) => {
-                if (committed) {
-                    showToast("You purchased 50 OA Coins!");
-                } else {
-                    showToast("Failed to purchase coins.", "error");
-                }
+            db.ref(`users/${uid}/coins`).transaction(coins => (coins || 0) + 50, () => {
+                showToast("You purchased 50 OA Coins!");
             });
         }
 
         function loadAuctions(userId) {
             const container = document.getElementById("auctions");
+            const userContainer = document.getElementById("user-auctions");
             container.innerHTML = "<div id='loading'>Loading...</div>";
+            userContainer.innerHTML = "";
 
             db.ref("auctions").on('value', snapshot => {
                 container.innerHTML = "";
-                if (!snapshot.exists()) {
-                    container.innerHTML = "<p>No auctions available at the moment.</p>";
-                    return;
-                }
+                userContainer.innerHTML = "";
 
                 snapshot.forEach(auctionSnapshot => {
                     const auction = auctionSnapshot.val();
                     const auctionId = auctionSnapshot.key;
-
+                    const userBid = auction.bids?.[userId] || 0;
                     const timeLeft = calculateTimeLeft(auction.endTime);
                     const auctionElement = document.createElement("div");
                     auctionElement.classList.add("auction-card");
 
-                    let bidHistoryHtml = "<div class='bid-history'><strong>Bid History:</strong><ul>";
-                    if (auction.bids) {
-                        Object.entries(auction.bids).forEach(([bidder, bidAmount]) => {
-                            bidHistoryHtml += `<li>${bidder}: ${bidAmount} OA Coins</li>`;
-                        });
-                    }
-                    bidHistoryHtml += "</ul></div>";
+                    const sortedBids = auction.bids ? Object.entries(auction.bids)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([id, amount]) => `<li>${auction.usernames?.[id]}: ${amount} OA Coins</li>`)
+                        .join("") : "";
 
                     auctionElement.innerHTML = `
                         <img src="${auction.image}" alt="${auction.title}">
-                        <h3>${auction.title}</h3>
-                        <p>Current Bid: ${auction.currentBid} OA Coins</p>
-                        <p class="timer" id="timer-${auctionId}">${timeLeft}</p>
-                        <input type="number" id="bid-${auctionId}" placeholder="Enter your bid">
-                        <button onclick="placeBid('${auctionId}', '${userId}')">Place Bid</button>
-                        ${bidHistoryHtml}
+                        <div class="auction-details">
+                            <h3>${auction.title}</h3>
+                            <p class="current-bid">Current Bid: ${auction.currentBid || 0} OA Coins</p>
+                            <div class="bid-controls">
+                                <button class="bid-button" onclick="placeBid('${auctionId}', '${userId}', ${auction.currentBid || 0})">Bid</button>
+                            </div>
+                        </div>
+                        <div class="timer">Ends in: ${timeLeft}</div>
+                        <div class="bid-history"><strong>Bid History:</strong><ul>${sortedBids}</ul></div>
                     `;
-
-                    if (auction.currentBid > 1000) {
-                        auctionElement.classList.add("high-bid");
-                    }
 
                     container.appendChild(auctionElement);
 
+                    if (userBid > 0) {
+                        const userElement = auctionElement.cloneNode(true);
+                        userContainer.appendChild(userElement);
+                    }
+
                     setInterval(() => {
-                        const timer = document.getElementById(`timer-${auctionId}`);
-                        if (timer) {
-                            timer.innerText = calculateTimeLeft(auction.endTime);
-                        }
+                        auctionElement.querySelector(".timer").innerText = `Ends in: ${calculateTimeLeft(auction.endTime)}`;
                     }, 1000);
                 });
             });
         }
 
         function calculateTimeLeft(endTime) {
-            const now = Date.now();
-            const timeDiff = endTime - now;
-            if (timeDiff <= 0) return "Auction Ended";
-            const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((timeDiff % (1000 * 60)) / (1000 * 60));
-            const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
-            return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+            const now = moment();
+            const end = moment(endTime);
+            const duration = moment.duration(end.diff(now));
+            if (duration.asSeconds() <= 0) return "Auction Ended";
+            return `${duration.days()}d ${duration.hours()}h ${duration.minutes()}m ${duration.seconds()}s`;
         }
 
-        function placeBid(auctionId, userId) {
-            const bidInput = document.getElementById(`bid-${auctionId}`);
-            const bidAmount = parseInt(bidInput.value);
-
-            if (isNaN(bidAmount) || bidAmount <= 0) {
-                showToast("Invalid bid amount!", "error");
-                return;
-            }
-
-            db.ref(`users/${userId}/coins`).once('value', snapshot => {
-                const userCoins = snapshot.val() || 0;
-                if (userCoins >= bidAmount) {
+        function placeBid(auctionId, userId, currentBid) {
+            db.ref(`users/${userId}`).once('value', snapshot => {
+                const user = snapshot.val();
+                const bidAmount = user.coins > 50 ? currentBid + 50 : 0;
+                if (bidAmount > currentBid) {
                     db.ref(`auctions/${auctionId}`).transaction(auction => {
                         if (auction && bidAmount > auction.currentBid) {
                             auction.currentBid = bidAmount;
                             if (!auction.bids) auction.bids = {};
+                            if (!auction.usernames) auction.usernames = {};
                             auction.bids[userId] = bidAmount;
+                            auction.usernames[userId] = user.username;
                             return auction;
                         }
                         return;
                     });
-
-                    db.ref(`users/${userId}`).update({ coins: userCoins - bidAmount });
+                    db.ref(`users/${userId}`).update({ coins: user.coins - 50 });
                     showToast("Bid placed successfully!");
                 } else {
-                    showToast("Not enough OA Coins!", "error");
+                    showToast("Bid must be higher than current bid and you need sufficient coins!", "error");
                 }
             });
+        }
+
+        function showToast(message, type = "success") {
+            Toastify({
+                text: message,
+                duration: 3000,
+                gravity: "top",
+                backgroundColor: type === "success" ? "#d4af37" : "#ff4d4d",
+                style: { fontFamily: 'Cinzel, serif' }
+            }).showToast();
         }
     </script>
 </body>
