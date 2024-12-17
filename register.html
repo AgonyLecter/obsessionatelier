@@ -18,6 +18,8 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
+            user-select: none;
+            overflow: hidden;
         }
         .container {
             background: rgba(0, 0, 0, 0.8);
@@ -60,6 +62,10 @@
             color: #fff;
             font-size: 16px;
             outline: none;
+            transition: border-color 0.3s;
+        }
+        input:invalid {
+            border-color: red;
         }
         button {
             padding: 10px 20px;
@@ -87,20 +93,46 @@
         .link:hover {
             text-decoration: underline;
         }
+        #progress-bar {
+            display: none;
+            width: 100%;
+            height: 4px;
+            background: #d4af37;
+            animation: load 3s linear;
+        }
+        @keyframes load {
+            from { width: 0; }
+            to { width: 100%; }
+        }
     </style>
+    <script>
+        document.addEventListener('contextmenu', event => event.preventDefault());
+        document.addEventListener('keydown', function (e) {
+            if (e.key === "F12" || e.key === "PrintScreen" || (e.ctrlKey && e.key === "u")) {
+                e.preventDefault();
+            }
+            if ((e.ctrlKey && e.shiftKey && e.key === 'I') || (e.ctrlKey && e.shiftKey && e.key === 'C')) {
+                e.preventDefault();
+            }
+            if (e.ctrlKey && e.key === "s") {
+                e.preventDefault();
+            }
+        });
+    </script>
 </head>
 <body>
     <div class="container">
         <div class="logo">
             <img src="logo.png" alt="Logo">
         </div>
+        <div id="progress-bar"></div>
         <div id="auth-container">
             <div class="header">Login</div>
             <div class="form-group">
                 <input type="email" id="login-email" placeholder="Email" required>
             </div>
             <div class="form-group">
-                <input type="password" id="login-password" placeholder="Password" required>
+                <input type="password" id="login-password" placeholder="Password" minlength="6" required>
             </div>
             <button onclick="login()">Login</button>
             <div class="link" onclick="goToRegister()">Don't have an account? Register</div>
@@ -113,7 +145,7 @@
                 <input type="email" id="register-email" placeholder="Email" required>
             </div>
             <div class="form-group">
-                <input type="password" id="register-password" placeholder="Password" required>
+                <input type="password" id="register-password" placeholder="Password" minlength="6" required>
             </div>
             <div class="form-group">
                 <input type="text" id="username" placeholder="Username" required>
@@ -143,6 +175,14 @@
         const auth = firebase.auth();
         const db = firebase.database();
 
+        function showProgress() {
+            document.getElementById('progress-bar').style.display = 'block';
+        }
+
+        function hideProgress() {
+            document.getElementById('progress-bar').style.display = 'none';
+        }
+
         function showToast(message, type = "success") {
             Toastify({
                 text: message,
@@ -161,13 +201,14 @@
                 showToast("Please fill in all fields.", "error");
                 return;
             }
-
+            showProgress();
             auth.signInWithEmailAndPassword(email, password)
                 .then(() => {
                     showToast("Login successful!");
                     window.location.href = "1.html";
                 })
-                .catch(err => showToast(err.message, "error"));
+                .catch(err => showToast(err.message, "error"))
+                .finally(hideProgress);
         }
 
         function resetPassword() {
@@ -177,10 +218,11 @@
                 showToast("Please enter your email to reset password.", "error");
                 return;
             }
-
+            showProgress();
             auth.sendPasswordResetEmail(email)
                 .then(() => showToast("Password reset email sent!"))
-                .catch(err => showToast(err.message, "error"));
+                .catch(err => showToast(err.message, "error"))
+                .finally(hideProgress);
         }
 
         function register() {
@@ -192,7 +234,7 @@
                 showToast("Please fill in all fields.", "error");
                 return;
             }
-
+            showProgress();
             auth.createUserWithEmailAndPassword(email, password)
                 .then(user => {
                     db.ref(`users/${user.user.uid}`).set({
@@ -202,13 +244,8 @@
                     showToast("Registration successful!");
                     goToLogin();
                 })
-                .catch(err => {
-                    if (err.code === "auth/email-already-in-use") {
-                        showToast("This email is already registered.", "error");
-                    } else {
-                        showToast(err.message, "error");
-                    }
-                });
+                .catch(err => showToast(err.message, "error"))
+                .finally(hideProgress);
         }
 
         function goToRegister() {
@@ -223,5 +260,6 @@
     </script>
 </body>
 </html>
+
 
 
