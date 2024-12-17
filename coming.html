@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Obsession Atelier - Coming Soon</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000;
+            color: #fff;
+            font-family: 'Cinzel', serif;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        #coming-soon {
+            max-width: 90%;
+            width: 600px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+            box-sizing: border-box;
+        }
+
+        .logo-container {
+            width: 180px;
+            height: 180px;
+            margin: 0 auto 20px;
+            border: 3px solid #d4af37;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.7);
+        }
+
+        img {
+            max-width: 80%;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: 32px;
+            color: #d4af37;
+            margin-bottom: 15px;
+        }
+
+        p {
+            font-size: 20px;
+            color: #fff;
+            margin-bottom: 30px;
+            font-style: italic;
+            animation: fadeIn 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes fadeIn {
+            0% {
+                opacity: 0.5;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+
+        footer {
+            font-size: 14px;
+            color: #d4af37;
+            margin-top: 20px;
+        }
+    </style>
+    <script>
+        // Disable right-click context menu
+        document.addEventListener('contextmenu', function (e) {
+            e.preventDefault();
+        });
+
+        // Disable specific keyboard shortcuts
+        document.addEventListener('keydown', function (e) {
+            if (
+                e.key === "F12" || 
+                e.key === "PrintScreen" || 
+                (e.ctrlKey && e.key === "u") || 
+                (e.ctrlKey && e.shiftKey && (e.key === "I" || e.key === "J")) ||
+                (e.ctrlKey && e.key === "s")
+            ) {
+                e.preventDefault();
+            }
+        });
+
+        // Prevent dragging images
+        document.addEventListener('dragstart', function (e) {
+            if (e.target.tagName === 'IMG') {
+                e.preventDefault();
+            }
+        });
+    </script>
+</head>
+<body>
+    <div id="coming-soon">
+        <div class="logo-container">
+            <img src="logo.png" alt="Obsession Atelier Logo">
+        </div>
+        <h1>Coming Soon</h1>
+        <p>"Where Elegance Meets Desire.<br> Indulge Yourself. We Open Our Doors Soon."</p>
+        <footer>&copy; 2024 Obsession Atelier</footer>
+    </div>
+</body>
+</html>
+
+
